@@ -1,0 +1,72 @@
+# Environment & Local Secrets
+.env
+.env.local
+.env.*.local
+config/database.local.php
+config/*.local.php
+
+# Server & Application Logs
+*.log
+error_log
+access_log
+logs/
+temp/
+tmp/
+*.tmp
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# IDE & Editor Settings
+.idea/
+.vscode/
+*.swp
+*.swo
+*.iml
+*.iws
+*.ipr
+*.sublime-workspace
+*.sublime-project
+
+# Flutter & Dart Build Artifacts
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+**/coverage/
+
+# Android Build & Local Files
+**/.gradle/
+**/local.properties
+**/captures/
+**/gradlew
+**/gradlew.bat
+**/gradle/wrapper/gradle-wrapper.jar
+**/app/intermediates/
+**/app/generated/
+**/app/outputs/logs/
+**/app/outputs/mapping/
+
+# iOS / macOS Build & Xcode Files
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Podfile.lock
+**/*.xcworkspace
+**/*.xcuserdata
+**/DerivedData/
+
+# Binary APKs & App Bundles (Deploy to GitHub Releases, not git tree)
+*.apk
+*.aab
+

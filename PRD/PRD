@@ -1,0 +1,3371 @@
+============================================================
+REQUISITION MANAGEMENT SYSTEM
+COMPLETE PRODUCTION PRD
+============================================================
+
+VERSION: 1.0
+PLATFORM:
+- User: Flutter Android APK
+- Backend/API: Pure PHP
+- Database: MySQL
+- Store Panel: PHP Web Application
+- Admin Panel: PHP Web Application
+
+IMPORTANT:
+DO NOT use Laravel, CodeIgniter, Node.js, React backend, Firebase,
+or any other backend framework unless explicitly requested later.
+
+Backend must be pure/core PHP + MySQL.
+
+The system must be production-ready, secure, mobile-friendly,
+fast, modular, maintainable and API-driven.
+
+
+============================================================
+1. SYSTEM PURPOSE
+============================================================
+
+The existing manual process is:
+
+1. User needs materials.
+2. User writes material name, quantity, location and remarks.
+3. User submits/requests material from Store.
+4. Store issues available material.
+5. In emergency cases, Store may issue material immediately and
+   manually write the transaction in a register.
+6. Later the user creates a requisition based on the register.
+7. Store enters the requisition into Tally as a SALE voucher.
+8. Tally inventory is maintained through the Sale Voucher.
+
+The goal is to completely digitize this workflow.
+
+The new system must provide:
+
+USER:
+- Simple Flutter Android application
+- Add materials quickly
+- One daily Master Requisition per user
+- Multiple items can be continuously added throughout the day
+- Different items can belong to different locations
+- User can edit pending items
+- Once Store takes action on an item, that item becomes locked
+
+STORE:
+- Web-based Store Panel
+- View users
+- View each user's daily requisition
+- View location-wise Sub Requisitions
+- Issue full/partial quantities
+- Mark item as Not Available
+- Edit Store actions until 9 PM
+- Handle emergency issues
+- View issue history
+
+ADMIN:
+- Complete web-based Admin Panel
+- Dashboard
+- Users
+- Locations
+- Materials
+- Requisitions
+- Store actions
+- Emergency issues
+- Reports
+- Tally Export
+- Date Override
+- Activity Logs
+- Settings
+- Backup/Restore
+
+
+============================================================
+2. HIGH LEVEL ARCHITECTURE
+============================================================
+
+Flutter User App
+        |
+        | HTTPS REST API
+        |
+        v
+Pure PHP REST API
+        |
+        v
+MySQL Database
+
+Store Web Panel
+        |
+        | PHP backend/API
+        v
+MySQL
+
+Admin Web Panel
+        |
+        | PHP backend/API
+        v
+MySQL
+
+
+Use a clean separation:
+
+/api
+/admin
+/store
+/config
+/includes
+/database
+/assets
+/uploads
+/logs
+
+Recommended structure:
+
+/api/
+    auth/
+    requisitions/
+    materials/
+    locations/
+    users/
+    emergency/
+    history/
+
+/admin/
+    dashboard.php
+    requisitions.php
+    users.php
+    materials.php
+    locations.php
+    reports.php
+    tally-export.php
+    date-override.php
+    settings.php
+    activity-logs.php
+
+/store/
+    dashboard.php
+    requisitions.php
+    emergency.php
+    history.php
+    stock.php
+
+/config/
+    database.php
+    config.php
+
+/includes/
+    auth.php
+    permissions.php
+    time.php
+    requisition.php
+    logging.php
+    response.php
+
+
+============================================================
+3. TIMEZONE
+============================================================
+
+The entire business logic must use:
+
+Timezone:
+Asia/Kolkata
+
+IST must be used for all business rules.
+
+Never depend on:
+- Browser time
+- Flutter device time
+- Client-side JavaScript time
+
+Server-side PHP time must be authoritative.
+
+Example:
+
+date_default_timezone_set('Asia/Kolkata');
+
+
+============================================================
+4. USER APP
+============================================================
+
+The User App must be extremely simple.
+
+Do NOT make it look like a complicated ERP application.
+
+Primary goal:
+User should be able to add a material in a few seconds.
+
+
+============================================================
+5. USER APP NAVIGATION
+============================================================
+
+Bottom navigation:
+
+1. Home
+2. My Requisition
+3. Add Item
+4. History
+5. Profile
+
+
+============================================================
+6. USER HOME SCREEN
+============================================================
+
+Display:
+
+Greeting:
+"Good Morning, Tapas Ji"
+
+Today's Requisition card:
+
+Requisition No:
+REQ-20260828-015
+
+Date:
+28 Aug 2026
+
+Requisition Window:
+06:00 AM - 08:00 PM
+
+Store Edit Window:
+Until 09:00 PM
+
+Statistics:
+
+Total Items
+Pending
+Issued
+Partially Issued
+Not Available
+
+Large primary button:
+
++ ADD MATERIAL
+
+Home should clearly indicate whether the current requisition
+window is OPEN or CLOSED.
+
+
+============================================================
+7. MASTER REQUISITION LOGIC
+============================================================
+
+CRITICAL BUSINESS RULE:
+
+ONE USER + ONE DATE = ONE MASTER REQUISITION.
+
+Example:
+
+User:
+Tapas
+
+Date:
+28-Aug-2026
+
+Master Requisition:
+
+REQ-20260828-015
+
+If Tapas adds:
+
+08:15 AM:
+Cement - 10 Bag - Location A
+
+11:30 AM:
+Phenyl - 5 Ltr - Location B
+
+02:00 PM:
+Gloves - 50 Pcs - Location A
+
+06:30 PM:
+Pipe - 20 Pcs - Location C
+
+All items belong to:
+
+REQ-20260828-015
+
+There must NOT be four requisitions.
+
+There must be only ONE Master Requisition.
+
+
+============================================================
+8. MASTER REQUISITION NUMBER
+============================================================
+
+Format:
+
+REQ-YYYYMMDD-XXX
+
+Example:
+
+REQ-20260828-015
+
+The sequence must be generated safely on the server.
+
+Do not generate requisition numbers on the Flutter side.
+
+The number must be unique.
+
+Use database transaction/locking to prevent duplicate numbers
+when multiple users create requisitions simultaneously.
+
+
+============================================================
+9. REQUISITION CREATION WINDOW
+============================================================
+
+Users can add materials only:
+
+06:00 AM to 08:00 PM IST
+
+Rules:
+
+Before 06:00 AM:
+- Cannot add item
+
+06:00 AM to 08:00 PM:
+- Can add item
+- Can edit pending item
+- Can delete pending item
+
+After 08:00 PM:
+- Cannot add new items to today's requisition
+
+IMPORTANT:
+The backend must enforce this.
+
+Do not rely only on Flutter UI.
+
+
+============================================================
+10. ADD MATERIAL SCREEN
+============================================================
+
+Fields:
+
+Material
+Quantity
+Unit
+Location
+Remark
+
+Example:
+
+Material:
+Cement OPC 53 Grade
+
+Quantity:
+10
+
+Unit:
+Bag
+
+Location:
+Dharamshala Maintenance
+
+Remark:
+Urgent requirement
+
+Button:
+
+ADD ITEM
+
+
+============================================================
+11. MATERIAL SELECTION
+============================================================
+
+Material Master must exist.
+
+User can search materials.
+
+Example:
+
+Search:
+"cem"
+
+Results:
+
+Cement OPC 53 Grade
+Cement PPC
+Cement White
+Cement Mortar
+
+User can select material.
+
+Material data should come from the backend.
+
+Do not hard-code materials in Flutter.
+
+If allowed by Admin:
+"Add New Material"
+
+New materials should be flagged for Admin approval/review
+if required by configuration.
+
+
+============================================================
+12. LOCATION
+============================================================
+
+Location is ITEM LEVEL data.
+
+This is critical.
+
+A single Master Requisition can contain multiple locations.
+
+Example:
+
+REQ-20260828-015
+
+Cement       10     Location A
+Phenyl        5     Location B
+Gloves       50     Location A
+Pipe         20     Location C
+
+
+============================================================
+13. MASTER + SUB REQUISITION ARCHITECTURE
+============================================================
+
+The system must maintain:
+
+MASTER REQUISITION
+        |
+        +-- LOCATION SUB REQUISITION
+        |
+        +-- LOCATION SUB REQUISITION
+        |
+        +-- LOCATION SUB REQUISITION
+
+
+Example:
+
+Master:
+
+REQ-20260828-015
+
+Backend creates:
+
+REQ-20260828-015/02
+Location: Dharamshala Maintenance
+
+REQ-20260828-015/06
+Location: Shimla Site
+
+REQ-20260828-015/09
+Location: Chandigarh Office
+
+
+The suffix is generated by backend.
+
+USER DOES NOT ENTER THE SUB-REQUISITION NUMBER.
+
+
+============================================================
+14. SUB REQUISITION LOCATION GROUPING
+============================================================
+
+CRITICAL RULE:
+
+Same Master Requisition + Same Location
+= Same Sub Requisition.
+
+Example:
+
+09:00 AM:
+
+Cement
+Location: Dharamshala Maintenance
+
+Backend creates:
+
+REQ-20260828-015/02
+
+
+03:00 PM:
+
+Phenyl
+Location: Dharamshala Maintenance
+
+Backend must NOT create:
+
+REQ-20260828-015/03
+
+Instead:
+
+Phenyl must be added to:
+
+REQ-20260828-015/02
+
+
+Therefore:
+
+REQ-20260828-015/02
+
+Cement
+Phenyl
+Gloves
+
+
+All belong to the same location.
+
+
+============================================================
+15. NEW LOCATION
+============================================================
+
+If a new location is used in the same Master Requisition:
+
+Backend creates a new Sub Requisition.
+
+Example:
+
+Master:
+REQ-20260828-015
+
+Existing:
+REQ-20260828-015/02
+Dharamshala Maintenance
+
+New location:
+Shimla Site
+
+Create:
+
+REQ-20260828-015/06
+
+
+The exact suffix allocation mechanism must be centralized
+and configurable.
+
+Never create duplicate sub requisitions for the same
+Master Requisition + Location combination.
+
+
+============================================================
+16. USER ITEM EDITING
+============================================================
+
+A user can edit an item ONLY while:
+
+1. Store has not taken any action on that item.
+2. The relevant user edit window is open.
+
+Pending item:
+
+EDITABLE
+
+Store action taken:
+
+LOCKED
+
+
+Example:
+
+Cement
+Status: PENDING
+
+User can:
+- Change quantity
+- Change location
+- Change remark
+- Delete item
+
+After Store action:
+
+Cement
+Status: ISSUED
+
+LOCKED.
+
+User cannot modify it.
+
+
+============================================================
+17. ITEM STATUS
+============================================================
+
+Minimum statuses:
+
+PENDING
+ISSUED
+PARTIALLY_ISSUED
+NOT_AVAILABLE
+CANCELLED
+
+Optional internal status:
+
+LOCKED
+
+However, preferably calculate lock state based on
+store_action_at rather than relying only on a manually
+maintained LOCKED status.
+
+
+============================================================
+18. STORE PANEL
+============================================================
+
+Store Panel must be a desktop-first responsive web application.
+
+Navigation:
+
+Dashboard
+Requisition List
+Emergency Issue
+Issue History
+Stock Overview
+
+Reports:
+Tally Export
+Requisition Report
+User Report
+
+The Store Panel must be easy to operate quickly.
+
+
+============================================================
+19. STORE USER NAVIGATION
+============================================================
+
+At the top of the Store Panel show users horizontally.
+
+Example:
+
+[ All Users ]
+[ Tapas Ji ]
+[ Amit Kumar ]
+[ Ramesh Singh ]
+[ Suresh Yadav ]
+[ Pooja Sharma ]
+[ Vikram Pal ]
+[ More ]
+
+Clicking a user loads that user's requisition data.
+
+The interface should support many users.
+
+If there are too many users:
+- Horizontal scroll
+- Search user
+- More dropdown
+
+
+============================================================
+20. STORE REQUISITION VIEW
+============================================================
+
+When Store selects Tapas:
+
+Display:
+
+User:
+Tapas Ji
+
+Master Requisition:
+REQ-20260828-015
+
+Date:
+28 Aug 2026
+
+Then show location tabs:
+
+All Locations (3)
+
+REQ-20260828-015/02
+Dharamshala Maintenance
+
+REQ-20260828-015/06
+Shimla Site
+
+REQ-20260828-015/09
+Chandigarh Office
+
+
+============================================================
+21. STORE ITEM TABLE
+============================================================
+
+Columns:
+
+#
+Material
+Requested Qty
+Issued Qty
+Unit
+Location
+Remark
+Status
+Action
+
+Example:
+
+1
+Green Phenyl
+4
+4
+Ltr
+Dharamshala Maintenance
+For cleaning
+ISSUED
+Edit
+
+2
+Room Freshner
+2
+2
+Ltr
+Dharamshala Maintenance
+-
+ISSUED
+Edit
+
+3
+Collin
+1
+0
+Ltr
+Dharamshala Maintenance
+Not available
+NOT AVAILABLE
+Change
+
+4
+Nariyal Jhadu
+1
+1
+Pcs
+Dharamshala Maintenance
+-
+ISSUED
+Edit
+
+5
+Phenyl
+2
+1
+Pcs
+Dharamshala Maintenance
+Only 1 available
+PARTIALLY ISSUED
+Edit
+
+
+============================================================
+22. STORE ACTION
+============================================================
+
+For a PENDING item Store can:
+
+1. Issue Full Quantity
+2. Issue Partial Quantity
+3. Mark Not Available
+
+Example:
+
+Requested:
+100
+
+Available:
+80
+
+Store enters:
+
+Issued Qty:
+80
+
+Status automatically becomes:
+
+PARTIALLY_ISSUED
+
+
+============================================================
+23. FULL ISSUE
+============================================================
+
+If:
+
+Requested Qty = 100
+Issued Qty = 100
+
+Status:
+
+ISSUED
+
+
+============================================================
+24. PARTIAL ISSUE
+============================================================
+
+If:
+
+Requested Qty = 100
+Issued Qty = 70
+
+Status:
+
+PARTIALLY_ISSUED
+
+
+============================================================
+25. NOT AVAILABLE
+============================================================
+
+Store can click:
+
+NOT AVAILABLE
+
+Confirmation dialog:
+
+"Are you sure you want to mark this material as
+Not Available?"
+
+After confirmation:
+
+Status:
+NOT_AVAILABLE
+
+Issued Qty:
+0
+
+Store action timestamp is recorded.
+
+Item becomes locked for User.
+
+
+============================================================
+26. STORE ITEM LOCK
+============================================================
+
+Once Store performs ANY action:
+
+- Full Issue
+- Partial Issue
+- Not Available
+
+the item becomes locked for the User.
+
+User cannot edit it.
+
+Store can still edit it until the Store edit deadline.
+
+
+============================================================
+27. STORE EDIT WINDOW
+============================================================
+
+Normal Store editing window:
+
+06:00 AM to 09:00 PM IST
+
+Store can edit today's actions until 09:00 PM.
+
+After 09:00 PM:
+
+Store cannot modify today's records.
+
+Backend must enforce this.
+
+Do not rely on frontend countdown.
+
+
+============================================================
+28. STORE EDIT EXAMPLES
+============================================================
+
+At 8:30 PM:
+
+Store can change:
+
+Issued:
+80 -> 75
+
+or:
+
+Not Available -> Issued
+
+provided business rules allow it.
+
+At 9:01 PM:
+
+Modification must be rejected by backend.
+
+Show:
+
+"Store editing window has closed at 09:00 PM IST."
+
+
+============================================================
+29. ADMIN DATE OVERRIDE
+============================================================
+
+Admin has special permission.
+
+Admin can open ANY PAST DATE for Store editing.
+
+Example:
+
+Date:
+25-Aug-2026
+
+Current status:
+CLOSED
+
+Admin clicks:
+
+OPEN FOR 2 HOURS
+
+
+System creates an override:
+
+Date:
+25-Aug-2026
+
+Opened At:
+10:30 AM
+
+Expires At:
+12:30 PM
+
+During this period Store can edit records belonging
+to that date.
+
+After two hours:
+Automatically CLOSED.
+
+
+============================================================
+30. DATE OVERRIDE RULES
+============================================================
+
+Admin override is NOT a permanent reopening.
+
+It is a temporary 2-hour window.
+
+Only Admin can create override.
+
+Store cannot create override.
+
+The backend must check:
+
+override_start <= current_server_time <= override_expiry
+
+
+If expired:
+
+DENY STORE EDIT
+
+
+============================================================
+31. DATE OVERRIDE AUDIT
+============================================================
+
+Every override must be logged.
+
+Fields:
+
+id
+date
+opened_by
+opened_at
+expires_at
+closed_at
+reason
+status
+
+
+Reason should preferably be mandatory.
+
+Example:
+
+"Correction required in Tally entry."
+
+
+============================================================
+32. EMERGENCY ISSUE
+============================================================
+
+The current manual register process must also be digitized.
+
+Current:
+
+Emergency material
+       ↓
+Store gives material
+       ↓
+Writes register
+       ↓
+User later creates requisition
+
+
+New:
+
+Emergency Issue
+       ↓
+Store Panel
+       ↓
+Select User
+       ↓
+Select Material
+       ↓
+Quantity
+       ↓
+Location
+       ↓
+Remark
+       ↓
+Issue
+
+
+============================================================
+33. EMERGENCY ISSUE SCREEN
+============================================================
+
+Fields:
+
+User
+Material
+Quantity
+Unit
+Location
+Remark
+Emergency Reason
+
+Button:
+
+ISSUE MATERIAL
+
+
+Store must be able to create an emergency transaction
+without waiting for the user to create a requisition first.
+
+
+============================================================
+34. EMERGENCY REQUISITION LINKING
+============================================================
+
+Emergency transactions should be digitally recorded.
+
+The system should support linking an Emergency Issue
+to the user's daily Master Requisition.
+
+Example:
+
+Emergency Issue:
+
+User:
+Tapas
+
+Date:
+28-Aug-2026
+
+Material:
+Gloves
+
+Qty:
+20
+
+Location:
+Site A
+
+Later when Master Requisition exists:
+
+REQ-20260828-015
+
+the emergency issue can be linked to it.
+
+Do not duplicate the transaction.
+
+Maintain the original emergency timestamp and user/store
+information.
+
+
+============================================================
+35. TALLY WORKFLOW
+============================================================
+
+Current Tally workflow:
+
+Requisition
+     ↓
+Store issues material
+     ↓
+Store enters Sale Voucher in Tally
+
+
+The new system must provide:
+
+Admin/Store
+     ↓
+Tally Export
+     ↓
+Excel
+     ↓
+Tally Import
+     ↓
+Sale Voucher
+
+
+============================================================
+36. TALLY FIELD MAPPING
+============================================================
+
+Based on the provided Tally screenshot:
+
+Tally Sale Voucher Number:
+= Sub Requisition Number
+
+Example:
+
+REQ-20260828-015/02
+
+
+Tally Date:
+= Requisition/Issue Date according to configured business rule
+
+
+Party A/c Name:
+= Location
+
+
+Sales Ledger:
+= SALE
+
+
+Name of Item:
+= Material
+
+
+Quantity:
+= ACTUAL ISSUED QUANTITY
+
+
+Rate:
+= Material Rate
+
+
+Amount:
+= Quantity × Rate
+
+
+Narration:
+= User Name
+
+Example:
+
+"issue to tapas ji"
+
+
+============================================================
+37. TALLY MULTI-LOCATION LOGIC
+============================================================
+
+One Master Requisition may contain multiple locations.
+
+Example:
+
+Master:
+
+REQ-20260828-015
+
+Sub:
+
+REQ-20260828-015/02
+Dharamshala Maintenance
+
+REQ-20260828-015/06
+Shimla Site
+
+REQ-20260828-015/09
+Chandigarh Office
+
+
+Each Sub Requisition should be independently exportable
+as a Tally Sale Voucher.
+
+Example:
+
+Voucher:
+
+REQ-20260828-015/02
+
+Party:
+Dharamshala Maintenance
+
+Items:
+Green Phenyl
+Room Freshner
+Nariyal Jhadu
+
+Narration:
+Issue to Tapas Ji
+
+
+============================================================
+38. TALLY QUANTITY RULE
+============================================================
+
+CRITICAL:
+
+Tally must receive ACTUAL ISSUED QUANTITY.
+
+NOT requested quantity.
+
+Example:
+
+Requested:
+100
+
+Issued:
+70
+
+Tally:
+
+Quantity = 70
+
+
+If:
+
+Status = NOT_AVAILABLE
+
+The item must NOT be exported to Tally.
+
+
+============================================================
+39. TALLY EXPORT PAGE
+============================================================
+
+Admin Panel navigation:
+
+Reports & Export
+    |
+    +-- Tally Export
+
+
+Page:
+
+Date From
+Date To
+
+User
+[ All Users ]
+
+Location
+[ All Locations ]
+
+Status
+[ Issued / Partially Issued / All ]
+
+Export Status
+[ Not Exported / Exported / All ]
+
+
+Buttons:
+
+[ PREVIEW ]
+
+[ EXPORT EXCEL ]
+
+
+============================================================
+40. TALLY EXPORT PREVIEW
+============================================================
+
+Before generating Excel show:
+
+Master Requisition
+Sub Requisition
+Date
+User
+Location
+Material
+Issued Qty
+Unit
+Rate
+Amount
+Tally Status
+
+
+Admin should be able to review data before export.
+
+
+============================================================
+41. TALLY EXPORT DUPLICATE PROTECTION
+============================================================
+
+CRITICAL:
+
+Do not allow accidental duplicate export.
+
+Each exportable Sub Requisition must have:
+
+tally_export_status
+
+Possible values:
+
+NOT_EXPORTED
+EXPORTED
+
+
+Also maintain:
+
+tally_exported_at
+tally_exported_by
+tally_export_batch_id
+
+
+If exported again, system must show warning.
+
+Example:
+
+"This Sub Requisition was already exported on
+28-Aug-2026 at 04:30 PM.
+
+Export again?"
+
+Require explicit confirmation for re-export.
+
+
+============================================================
+42. TALLY EXPORT BATCH
+============================================================
+
+Every Excel export should have a Batch ID.
+
+Example:
+
+TALLY-20260828-004
+
+Store:
+
+batch_id
+created_at
+created_by
+date_from
+date_to
+record_count
+file_name
+
+
+Each exported sub-requisition should be linked to the batch.
+
+
+============================================================
+43. TALLY IMPORT FORMAT
+============================================================
+
+IMPORTANT:
+
+Do not invent the final Excel columns.
+
+Create a configurable Tally Export Mapper.
+
+The system should be designed so that the final Excel column
+mapping can be changed from one central place.
+
+Example configuration:
+
+Voucher Number
+Voucher Date
+Party Ledger
+Sales Ledger
+Item Name
+Quantity
+Unit
+Rate
+Amount
+Narration
+
+
+Once the actual Tally import template is confirmed,
+configure the exporter to exactly match it.
+
+
+============================================================
+44. MATERIAL RATE
+============================================================
+
+Materials should have a rate in the Material Master.
+
+Example:
+
+Green Phenyl
+Unit: Ltr
+Rate: 200.00
+
+
+Room Freshner
+Unit: Ltr
+Rate: 350.00
+
+
+Collin
+Unit: Ltr
+Rate: 80.00
+
+
+Nariyal Jhadu
+Unit: Pcs
+Rate: 40.00
+
+
+Tally Amount:
+
+Quantity × Rate
+
+
+Store should NOT normally edit the master rate.
+
+Only authorized Admin users can modify material rates.
+
+Rate changes must be audited.
+
+
+============================================================
+45. IMPORTANT HISTORICAL RATE RULE
+============================================================
+
+When a material is issued, store the effective rate inside
+the requisition item.
+
+Do NOT calculate old Tally values using the current Material Master rate.
+
+Example:
+
+Material Master today:
+Rate = 200
+
+Yesterday:
+Rate = 180
+
+Yesterday's requisition must retain:
+Rate = 180
+
+Therefore requisition_items should store:
+
+unit_rate
+amount
+
+
+============================================================
+46. DATABASE DESIGN
+============================================================
+
+Create normalized MySQL tables.
+
+Minimum tables:
+
+
+users
+
+Fields:
+
+id
+employee_code
+name
+mobile
+email
+password_hash
+role
+department_id
+status
+created_at
+updated_at
+
+
+roles
+
+id
+name
+
+
+departments
+
+id
+name
+status
+
+
+locations
+
+id
+name
+code
+tally_ledger_name
+status
+created_at
+updated_at
+
+
+materials
+
+id
+name
+code
+category_id
+unit
+default_rate
+status
+created_at
+updated_at
+
+
+material_categories
+
+id
+name
+status
+
+
+requisitions
+
+id
+requisition_no
+user_id
+requisition_date
+status
+created_at
+updated_at
+
+
+requisition_subs
+
+id
+requisition_id
+sub_requisition_no
+location_id
+status
+created_at
+updated_at
+
+
+requisition_items
+
+id
+sub_requisition_id
+material_id
+material_name_snapshot
+unit_snapshot
+requested_quantity
+issued_quantity
+unit_rate
+amount
+remark
+status
+store_action_by
+store_action_at
+created_at
+updated_at
+
+
+emergency_issues
+
+id
+user_id
+material_id
+material_name_snapshot
+quantity
+unit
+unit_rate
+location_id
+remark
+reason
+requisition_id
+requisition_item_id
+issued_by
+issued_at
+status
+created_at
+
+
+admin_date_overrides
+
+id
+override_date
+opened_by
+opened_at
+expires_at
+closed_at
+reason
+status
+created_at
+
+
+tally_export_batches
+
+id
+batch_id
+date_from
+date_to
+created_by
+created_at
+file_name
+record_count
+
+
+tally_exports
+
+id
+batch_id
+sub_requisition_id
+exported_by
+exported_at
+status
+
+
+activity_logs
+
+id
+user_id
+action
+entity_type
+entity_id
+old_data
+new_data
+ip_address
+user_agent
+created_at
+
+
+settings
+
+id
+setting_key
+setting_value
+updated_at
+updated_by
+
+
+============================================================
+47. DATABASE RELATIONSHIPS
+============================================================
+
+User
+  |
+  +-- Requisitions
+          |
+          +-- Sub Requisitions
+                  |
+                  +-- Location
+                  |
+                  +-- Requisition Items
+                          |
+                          +-- Material
+
+
+One Master Requisition:
+
+requisitions.id
+
+can have many:
+
+requisition_subs
+
+
+One Sub Requisition:
+
+requisition_subs.id
+
+can have many:
+
+requisition_items
+
+
+One Sub Requisition:
+
+belongs to exactly one Location.
+
+
+============================================================
+48. SNAPSHOT DATA
+============================================================
+
+For historical accuracy, do not depend only on current
+Master tables.
+
+Store snapshots where appropriate.
+
+For example:
+
+requisition_items.material_name_snapshot
+requisition_items.unit_snapshot
+requisition_items.unit_rate
+
+This protects historical requisitions if Admin later
+renames a material or changes its rate.
+
+
+============================================================
+49. API DESIGN
+============================================================
+
+Create REST-style PHP APIs.
+
+Authentication:
+
+POST /api/auth/login
+POST /api/auth/logout
+POST /api/auth/refresh
+
+User:
+
+GET /api/me
+GET /api/dashboard
+GET /api/materials
+GET /api/materials/search
+GET /api/locations
+
+Requisition:
+
+GET /api/requisition/today
+POST /api/requisition/items
+PUT /api/requisition/items/{id}
+DELETE /api/requisition/items/{id}
+GET /api/requisition/{id}
+GET /api/requisition/history
+
+Store:
+
+GET /api/store/users
+GET /api/store/requisitions
+GET /api/store/requisition/{id}
+POST /api/store/items/{id}/issue
+POST /api/store/items/{id}/partial
+POST /api/store/items/{id}/not-available
+PUT /api/store/items/{id}
+
+Emergency:
+
+POST /api/store/emergency
+GET /api/store/emergency
+GET /api/store/emergency/{id}
+
+Admin:
+
+GET /api/admin/dashboard
+GET /api/admin/requisitions
+GET /api/admin/users
+POST /api/admin/users
+PUT /api/admin/users/{id}
+GET /api/admin/materials
+POST /api/admin/materials
+PUT /api/admin/materials/{id}
+GET /api/admin/locations
+POST /api/admin/locations
+PUT /api/admin/locations/{id}
+
+Date Override:
+
+POST /api/admin/date-override
+GET /api/admin/date-overrides
+
+Tally:
+
+GET /api/admin/tally/preview
+POST /api/admin/tally/export
+
+
+============================================================
+50. API RESPONSE FORMAT
+============================================================
+
+Use consistent JSON.
+
+Success:
+
+{
+    "success": true,
+    "message": "Item added successfully",
+    "data": {}
+}
+
+
+Error:
+
+{
+    "success": false,
+    "message": "Store action has already been taken",
+    "error_code": "ITEM_LOCKED"
+}
+
+
+============================================================
+51. AUTHENTICATION
+============================================================
+
+Use secure authentication.
+
+Do NOT store plain text passwords.
+
+Use:
+
+password_hash()
+password_verify()
+
+
+API authentication should use secure token/session mechanism.
+
+Tokens must expire.
+
+Implement logout/revocation.
+
+Admin, Store and User roles must have separate permissions.
+
+
+============================================================
+52. ROLE PERMISSIONS
+============================================================
+
+USER:
+
+Can:
+- View own requisitions
+- Add own items
+- Edit own pending items
+- Delete own pending items
+- View item statuses
+- View history
+- View profile
+
+Cannot:
+- View other users
+- Modify Store actions
+- Modify Tally data
+- Open dates
+- Modify materials
+- Modify locations
+
+
+STORE:
+
+Can:
+- View users
+- View requisitions
+- Issue items
+- Partial issue
+- Mark unavailable
+- Edit store actions within allowed time
+- Handle emergency issues
+- View issue history
+
+Cannot:
+- Create Admin overrides
+- Modify users
+- Modify system settings
+
+
+ADMIN:
+
+Full access according to permission configuration.
+
+Can:
+- Manage users
+- Manage materials
+- Manage locations
+- View all requisitions
+- View all store actions
+- Open past dates for 2 hours
+- Export Tally
+- View reports
+- View logs
+- Manage settings
+
+
+============================================================
+53. BACKEND TIME VALIDATION
+============================================================
+
+Every write operation must validate time on the server.
+
+USER ADD ITEM:
+
+if time < 06:00:
+DENY
+
+if time >= 20:00:
+DENY
+
+
+USER EDIT ITEM:
+
+if item has store_action_at:
+DENY
+
+if user edit window closed:
+DENY
+
+
+STORE EDIT:
+
+if current time < 21:00:
+ALLOW for today's records
+
+else:
+check active Admin Date Override
+
+if valid override:
+ALLOW
+
+else:
+DENY
+
+
+============================================================
+54. IMPORTANT CONCURRENCY RULE
+============================================================
+
+Use database transactions.
+
+Example:
+
+Two requests arrive at the same time:
+
+User adds item to same location.
+
+Both must NOT create two Sub Requisitions.
+
+Use transaction + appropriate unique constraint.
+
+Recommended unique constraint:
+
+(requisition_id, location_id)
+
+This guarantees:
+
+One Master Requisition
++
+One Location
+=
+One Sub Requisition
+
+
+============================================================
+55. UNIQUE CONSTRAINTS
+============================================================
+
+Recommended:
+
+requisitions:
+UNIQUE(requisition_no)
+
+requisition_subs:
+UNIQUE(requisition_id, location_id)
+UNIQUE(sub_requisition_no)
+
+users:
+UNIQUE(employee_code)
+
+materials:
+UNIQUE(code)
+
+locations:
+UNIQUE(code)
+
+
+============================================================
+56. USER APP ITEM STATUS UI
+============================================================
+
+Pending:
+
+YELLOW
+
+Issued:
+
+GREEN
+
+Partially Issued:
+
+ORANGE
+
+Not Available:
+
+RED
+
+Locked:
+
+Show lock icon.
+
+Example:
+
+Cement
+10 Bag
+Dharamshala Maintenance
+
+PENDING
+
+[EDIT]
+
+
+After Store action:
+
+Cement
+10 Bag
+Issued: 10
+
+ISSUED 🔒
+
+"Locked because Store has taken action."
+
+
+============================================================
+57. USER HISTORY
+============================================================
+
+User can view previous Master Requisitions.
+
+Example:
+
+28 Aug 2026
+REQ-20260828-015
+12 Items
+98 Issued
+
+27 Aug 2026
+REQ-20260827-021
+8 Items
+54 Issued
+
+Tap opens details.
+
+
+============================================================
+58. STORE DASHBOARD
+============================================================
+
+Cards:
+
+Total Items
+Pending
+Issued
+Partially Issued
+Not Available
+Total Requested Qty
+Total Issued Qty
+
+
+Main area:
+
+User selector
+
+Master requisition
+
+Location sub-requisition tabs
+
+Item table
+
+
+Right side:
+
+Store Window Status
+
+Admin Override Status
+
+Quick Actions
+
+Legend
+
+
+============================================================
+59. ADMIN DASHBOARD
+============================================================
+
+Cards:
+
+Total Master Requisitions
+Total Sub Requisitions
+Total Issued Quantity
+Not Available Items
+Tally Exported
+
+
+Charts:
+
+Requisition Summary
+Issued vs Pending
+Top Locations by Issued Quantity
+
+
+Tables:
+
+Recent Master Requisitions
+
+Columns:
+
+Requisition No
+User
+Date
+Sub Requisitions
+Total Items
+Issued Qty
+Pending
+Status
+Action
+
+
+============================================================
+60. ADMIN DATE OVERRIDE UI
+============================================================
+
+Page:
+
+Date Override
+
+Select Date:
+
+[ 25 Aug 2026 ]
+
+Status:
+
+CLOSED
+
+Button:
+
+OPEN FOR 2 HOURS
+
+
+After opening:
+
+Status:
+OPEN
+
+Opened At:
+10:30 AM
+
+Expires At:
+12:30 PM
+
+
+Show recent overrides:
+
+Date
+Opened At
+Expires At
+Opened By
+Reason
+Status
+
+
+============================================================
+61. REPORTS
+============================================================
+
+Admin reports:
+
+1. Requisition Report
+2. Sub Requisition Report
+3. User Report
+4. Location Report
+5. Material Issue Report
+6. Emergency Issue Report
+7. Store Activity Report
+8. Tally Export Report
+
+
+Filters:
+
+Date From
+Date To
+User
+Location
+Material
+Status
+
+
+Support:
+
+Excel export
+CSV export if useful
+
+
+============================================================
+62. ACTIVITY LOG
+============================================================
+
+Log important actions.
+
+Examples:
+
+USER_ADDED_ITEM
+USER_EDITED_ITEM
+USER_DELETED_ITEM
+
+STORE_ISSUED_ITEM
+STORE_PARTIAL_ISSUE
+STORE_MARKED_UNAVAILABLE
+STORE_EDITED_ITEM
+
+EMERGENCY_ISSUE_CREATED
+
+ADMIN_DATE_OVERRIDE_CREATED
+
+TALLY_EXPORT_CREATED
+
+USER_CREATED
+USER_UPDATED
+
+MATERIAL_CREATED
+MATERIAL_UPDATED
+
+LOCATION_CREATED
+LOCATION_UPDATED
+
+
+Each log should contain:
+
+Who
+What
+When
+Entity
+Old Value
+New Value
+IP
+User Agent
+
+
+============================================================
+63. SECURITY
+============================================================
+
+Implement:
+
+Prepared statements / PDO
+
+CSRF protection for web forms
+
+XSS protection
+
+Input validation
+
+Output escaping
+
+Rate limiting for login
+
+Secure password hashing
+
+Session security
+
+HTTP-only cookies if cookie authentication is used
+
+Authorization checks on every API endpoint
+
+Never trust user_id from frontend.
+
+Always derive authenticated user identity from
+the authenticated session/token.
+
+Never trust date/time from Flutter.
+
+Never trust status from Flutter.
+
+Never trust issued quantity without server validation.
+
+Never trust location IDs without checking validity.
+
+
+============================================================
+64. FILE UPLOADS
+============================================================
+
+If attachments are implemented:
+
+- Validate extension
+- Validate MIME type
+- Validate file size
+- Randomize filenames
+- Store outside executable PHP directory
+- Prevent PHP execution
+- Authenticate downloads
+
+
+============================================================
+65. ERROR HANDLING
+============================================================
+
+Never expose:
+
+SQL errors
+database credentials
+PHP stack traces
+server paths
+
+to end users.
+
+Log technical errors internally.
+
+Return clean user-friendly messages.
+
+
+============================================================
+66. TRANSACTION SAFETY
+============================================================
+
+When Store issues an item:
+
+Use DB transaction.
+
+Example:
+
+BEGIN
+
+Lock item row
+
+Validate current status
+
+Validate Store edit permission
+
+Calculate issued quantity
+
+Calculate amount
+
+Update item
+
+Create activity log
+
+COMMIT
+
+
+If anything fails:
+
+ROLLBACK
+
+
+============================================================
+67. BUSINESS RULE: STORE ACTION IMMUTABILITY
+============================================================
+
+The system must maintain a complete history.
+
+If Store changes:
+
+Issued Qty:
+100 -> 80
+
+do not silently overwrite history.
+
+Record:
+
+old:
+100
+
+new:
+80
+
+who:
+Store User
+
+when:
+timestamp
+
+
+============================================================
+68. UI/UX DESIGN
+============================================================
+
+Overall design:
+
+Modern professional enterprise application.
+
+User App:
+- Very simple
+- Mobile-first
+- Large buttons
+- Minimal fields
+- Clear status colors
+- Fast search
+- Bottom navigation
+- No unnecessary complexity
+
+Store Panel:
+- Desktop-first
+- Dense but readable tables
+- User tabs at top
+- Clear status badges
+- Quick actions
+- Sticky table headers if needed
+
+Admin Panel:
+- Professional ERP dashboard
+- Sidebar navigation
+- Cards
+- Charts
+- Tables
+- Filters
+- Reports
+- Clean white workspace
+- Dark navy sidebar
+- Blue primary action color
+
+
+============================================================
+69. RESPONSIVENESS
+============================================================
+
+Store and Admin web panels must work on:
+
+Desktop
+Laptop
+Tablet
+
+User app is Flutter Android-first.
+
+
+============================================================
+70. FRONTEND TECHNOLOGY
+============================================================
+
+User:
+Flutter + Dart
+
+Store/Admin:
+PHP rendered web UI or PHP + lightweight JS/AJAX.
+
+Avoid unnecessary frontend frameworks.
+
+Use:
+HTML5
+CSS3
+JavaScript
+AJAX/Fetch where useful
+Bootstrap or Tailwind only if it simplifies implementation.
+
+The UI must remain fast.
+
+
+============================================================
+71. MYSQL
+============================================================
+
+Use MySQL 8+ compatible SQL.
+
+Use:
+
+InnoDB
+
+Foreign keys
+
+Indexes
+
+Transactions
+
+UTF-8 / utf8mb4
+
+
+============================================================
+72. INDEXING
+============================================================
+
+Important indexes:
+
+requisitions:
+(user_id, requisition_date)
+
+requisition_subs:
+(requisition_id, location_id)
+
+requisition_items:
+(sub_requisition_id, status)
+
+requisition_items:
+(store_action_at)
+
+emergency_issues:
+(user_id, issued_at)
+
+activity_logs:
+(created_at)
+
+tally_exports:
+(sub_requisition_id)
+
+
+============================================================
+73. API PAGINATION
+============================================================
+
+Large lists must be paginated.
+
+Do not load thousands of records at once.
+
+Use:
+
+page
+limit
+search
+sort
+filters
+
+
+============================================================
+74. SEARCH
+============================================================
+
+Store/Admin:
+
+Search User
+Search Requisition
+Search Material
+Search Location
+
+User App:
+
+Search Material
+
+Use server-side search where appropriate.
+
+
+============================================================
+75. NOTIFICATIONS
+============================================================
+
+User App should display useful notifications.
+
+Examples:
+
+"Your Cement request has been issued."
+
+"Your Phenyl request was partially issued."
+
+"Collin is not available."
+
+"Your requisition window closes at 08:00 PM."
+
+"Store editing closes at 09:00 PM."
+
+
+Push notifications can be added later.
+
+Do not make Firebase mandatory for version 1 unless required.
+
+
+============================================================
+76. DAILY RESET LOGIC
+============================================================
+
+There must be NO manual daily reset.
+
+At 00:00 IST:
+
+A new day naturally creates a new Master Requisition
+when the user first adds an item.
+
+Example:
+
+28 Aug:
+
+REQ-20260828-015
+
+29 Aug:
+
+REQ-20260829-001
+
+
+Do not create empty requisitions for every user automatically
+unless explicitly required.
+
+
+============================================================
+77. EMPTY REQUISITION
+============================================================
+
+Do not create a Master Requisition merely because the user
+opens the app.
+
+Create it only when the first item is actually added.
+
+This prevents thousands of unnecessary empty records.
+
+
+============================================================
+78. ITEM DELETION
+============================================================
+
+User can delete:
+
+PENDING items only.
+
+Once Store takes action:
+
+DELETE disabled.
+
+Store can never permanently delete an issued transaction
+through normal UI.
+
+Use cancellation/correction workflow if required.
+
+
+============================================================
+79. MASTER REQUISITION STATUS
+============================================================
+
+Master status should be calculated from its Sub Requisitions/items.
+
+Possible:
+
+OPEN
+PARTIALLY_PROCESSED
+COMPLETED
+CLOSED
+
+
+Example:
+
+All items pending:
+OPEN
+
+Some issued + some pending:
+PARTIALLY_PROCESSED
+
+All items processed:
+COMPLETED
+
+After final lock:
+CLOSED
+
+
+============================================================
+80. SUB REQUISITION STATUS
+============================================================
+
+A Sub Requisition is independently tracked.
+
+Example:
+
+REQ-20260828-015/02
+
+Items:
+
+Cement -> Issued
+Phenyl -> Issued
+Gloves -> Pending
+
+Status:
+
+PARTIALLY_PROCESSED
+
+
+============================================================
+81. TALLY EXPORT ELIGIBILITY
+============================================================
+
+Only processed items should be exported.
+
+Eligible:
+
+ISSUED
+PARTIALLY_ISSUED
+
+Not eligible:
+
+PENDING
+NOT_AVAILABLE
+CANCELLED
+
+
+For PARTIALLY_ISSUED:
+
+Export issued_quantity only.
+
+
+============================================================
+82. TALLY EXPORT VALIDATION
+============================================================
+
+Before export validate:
+
+Material has Tally item mapping
+Location has Tally ledger mapping
+Sales Ledger is configured
+Quantity > 0
+Rate exists
+Amount calculated
+Sub Requisition exists
+Not already exported OR explicit re-export confirmed
+
+
+If validation fails:
+
+Do not generate incomplete Excel.
+
+Show an error report.
+
+
+============================================================
+83. TALLY MASTER MAPPING
+============================================================
+
+Materials should optionally contain:
+
+tally_item_name
+tally_item_code
+
+
+Locations should contain:
+
+tally_ledger_name
+tally_ledger_code
+
+
+Sales Ledger:
+
+SALE
+
+should be configurable in Settings.
+
+
+============================================================
+84. BACKUP
+============================================================
+
+Admin panel should provide:
+
+Database Backup
+
+At minimum:
+
+Manual backup button
+
+Backup metadata:
+
+Created At
+Created By
+File Size
+Status
+
+
+Automated backup can be implemented later.
+
+
+============================================================
+85. SETTINGS
+============================================================
+
+Admin Settings:
+
+System Name
+Timezone
+User Request Start Time
+User Request End Time
+Store Edit End Time
+
+Default:
+
+Timezone:
+Asia/Kolkata
+
+User Start:
+06:00
+
+User End:
+20:00
+
+Store End:
+21:00
+
+
+Admin override duration:
+
+2 hours
+
+Keep these configurable but protect critical settings
+with Admin permissions.
+
+
+============================================================
+86. AUDITABILITY
+============================================================
+
+No important business transaction should disappear silently.
+
+For every:
+
+Add
+Edit
+Delete
+Issue
+Partial Issue
+Not Available
+Emergency Issue
+Override
+Tally Export
+
+keep audit information.
+
+
+============================================================
+87. FRONTEND VALIDATION VS BACKEND VALIDATION
+============================================================
+
+Frontend validation is for user experience.
+
+Backend validation is authoritative.
+
+Never rely on:
+
+Flutter validation
+JavaScript timers
+Hidden buttons
+Disabled buttons
+
+for security/business rules.
+
+Every important rule must be revalidated in PHP.
+
+
+============================================================
+88. API SECURITY
+============================================================
+
+Every protected endpoint must authenticate.
+
+Every endpoint must authorize role.
+
+Example:
+
+A User must NOT be able to call:
+
+PUT /api/store/items/123
+
+even if they manually construct the HTTP request.
+
+
+============================================================
+89. ADMIN PERMISSION SYSTEM
+============================================================
+
+Initially support:
+
+SUPER_ADMIN
+ADMIN
+
+Future-ready permissions:
+
+VIEW_REQUISITIONS
+MANAGE_USERS
+MANAGE_MATERIALS
+MANAGE_LOCATIONS
+MANAGE_OVERRIDES
+TALLY_EXPORT
+VIEW_REPORTS
+VIEW_LOGS
+
+
+============================================================
+90. UI REFERENCE
+============================================================
+
+The previously generated UI concepts should be used as
+visual direction.
+
+USER APP:
+
+- Home dashboard
+- Today's requisition card
+- Add Material
+- My Requisition
+- Status badges
+- Edit pending items
+- Locked issued items
+- History
+- Profile
+
+STORE PANEL:
+
+- Dark sidebar
+- Top user selector
+- Requisition summary cards
+- Master requisition header
+- Location-based Sub Requisition tabs
+- Material table
+- Issued/Partial/Not Available statuses
+- Store window indicator
+- Admin override indicator
+- Quick actions
+
+ADMIN PANEL:
+
+- Dark sidebar
+- Dashboard cards
+- Requisition charts
+- Recent requisitions
+- Date Override panel
+- Reports
+- Tally Export
+- Users
+- Materials
+- Locations
+- Activity Logs
+- Backup
+
+
+============================================================
+91. DO NOT OVERCOMPLICATE USER APP
+============================================================
+
+The User App is NOT a procurement approval system.
+
+Do not add unnecessary:
+
+- Purchase approval
+- Multi-level approval
+- Finance approval
+- RFQ
+- Vendor management
+
+unless requested later.
+
+The current business process is:
+
+USER REQUEST
+      ↓
+STORE ISSUE
+      ↓
+TALLY
+
+
+============================================================
+92. IMPORTANT DISTINCTION
+============================================================
+
+MASTER REQUISITION:
+
+User-facing daily document.
+
+Example:
+
+REQ-20260828-015
+
+
+SUB REQUISITION:
+
+Backend/location-level document.
+
+Examples:
+
+REQ-20260828-015/02
+REQ-20260828-015/06
+REQ-20260828-015/09
+
+
+TALLY VOUCHER:
+
+Should use the Sub Requisition identifier according to
+the confirmed Tally import workflow.
+
+
+============================================================
+93. DEVELOPMENT PHASES
+============================================================
+
+Build in phases.
+
+
+PHASE 1:
+Database + Core PHP API
+
+Implement:
+
+- Authentication
+- Users
+- Materials
+- Locations
+- Master Requisition
+- Sub Requisition
+- Items
+- Time rules
+
+
+PHASE 2:
+Flutter User App
+
+Implement:
+
+- Login
+- Home
+- Add Material
+- My Requisition
+- Edit
+- Delete
+- History
+- Profile
+
+
+PHASE 3:
+Store Panel
+
+Implement:
+
+- Dashboard
+- User selector
+- Requisition
+- Location tabs
+- Issue
+- Partial Issue
+- Not Available
+- History
+- Emergency Issue
+
+
+PHASE 4:
+Admin Panel
+
+Implement:
+
+- Dashboard
+- Users
+- Materials
+- Locations
+- Requisitions
+- Reports
+- Date Override
+- Activity Logs
+
+
+PHASE 5:
+Tally
+
+Implement:
+
+- Tally mapping
+- Export preview
+- Excel generation
+- Export batches
+- Duplicate protection
+- Export history
+
+
+PHASE 6:
+Security + Testing
+
+Implement:
+
+- Permission testing
+- Time-window testing
+- Concurrent request testing
+- Duplicate requisition testing
+- Duplicate sub requisition testing
+- Tally export testing
+- Audit testing
+- Backup testing
+
+
+============================================================
+94. TEST CASES
+============================================================
+
+TEST 1:
+
+User adds first item at 08:00 AM.
+
+Expected:
+Master requisition created.
+
+
+TEST 2:
+
+User adds second item at 11:00 AM.
+
+Expected:
+Same Master Requisition.
+
+
+TEST 3:
+
+Second item has same location.
+
+Expected:
+Same Sub Requisition.
+
+
+TEST 4:
+
+Second item has different location.
+
+Expected:
+New Sub Requisition.
+
+
+TEST 5:
+
+Store issues item.
+
+Expected:
+Item locked for User.
+
+
+TEST 6:
+
+User tries to edit issued item.
+
+Expected:
+Backend rejects.
+
+
+TEST 7:
+
+User adds item at 08:01 PM.
+
+Expected:
+Rejected.
+
+
+TEST 8:
+
+Store edits at 08:59 PM.
+
+Expected:
+Allowed.
+
+
+TEST 9:
+
+Store edits at 09:01 PM.
+
+Expected:
+Rejected.
+
+
+TEST 10:
+
+Admin opens previous date.
+
+Expected:
+Store can edit for exactly 2 hours.
+
+
+TEST 11:
+
+Override expires.
+
+Expected:
+Store editing rejected.
+
+
+TEST 12:
+
+Requested = 100
+Issued = 70
+
+Expected:
+PARTIALLY_ISSUED
+Tally quantity = 70.
+
+
+TEST 13:
+
+Not Available.
+
+Expected:
+No Tally export row.
+
+
+TEST 14:
+
+Same user creates simultaneous item requests.
+
+Expected:
+No duplicate Master Requisition.
+
+
+TEST 15:
+
+Two simultaneous items for same location.
+
+Expected:
+Only one Sub Requisition for that location.
+
+
+TEST 16:
+
+Material rate changes after requisition.
+
+Expected:
+Old requisition retains old rate.
+
+
+============================================================
+95. CODE QUALITY
+============================================================
+
+Write clean production code.
+
+Avoid:
+
+- Huge PHP files
+- Duplicate business logic
+- SQL inside random HTML files
+- Hard-coded user IDs
+- Hard-coded dates
+- Hard-coded time rules
+- Hard-coded material names
+- Hard-coded locations
+- Client-side-only permissions
+
+
+Create reusable functions/classes/modules.
+
+Use clear naming.
+
+Add comments for complex business logic.
+
+
+============================================================
+96. CONFIGURATION
+============================================================
+
+Create central configuration.
+
+Example:
+
+APP_NAME
+
+TIMEZONE
+
+USER_REQUEST_START
+06:00
+
+USER_REQUEST_END
+20:00
+
+STORE_EDIT_END
+21:00
+
+ADMIN_OVERRIDE_HOURS
+2
+
+DEFAULT_SALES_LEDGER
+SALE
+
+
+============================================================
+97. IMPORTANT IMPLEMENTATION RULE
+============================================================
+
+Do NOT start by generating all pages randomly.
+
+First create:
+
+1. Database schema
+2. Database migrations/SQL
+3. Core PHP configuration
+4. Authentication
+5. Permission middleware
+6. Time/business-rule service
+7. Requisition service
+8. Sub Requisition grouping logic
+9. API endpoints
+10. Then UI
+
+
+============================================================
+98. CRITICAL BUSINESS LOGIC SERVICE
+============================================================
+
+Create a centralized PHP business logic layer.
+
+For example:
+
+RequisitionService
+
+Methods:
+
+getOrCreateTodayMasterRequisition()
+getOrCreateLocationSubRequisition()
+addItem()
+updatePendingItem()
+deletePendingItem()
+validateUserRequestWindow()
+validateUserItemEditable()
+validateStoreEditWindow()
+issueItem()
+partialIssue()
+markNotAvailable()
+calculateMasterStatus()
+calculateSubStatus()
+
+
+TimeService:
+
+getCurrentIST()
+isUserRequestWindowOpen()
+isStoreEditWindowOpen()
+isAdminOverrideActive()
+
+
+TallyService:
+
+getExportableItems()
+validateExport()
+generateExport()
+createExportBatch()
+markExported()
+
+
+============================================================
+99. NEVER DUPLICATE BUSINESS RULES
+============================================================
+
+For example, do NOT write:
+
+if (date('H:i') < '20:00')
+
+in ten different files.
+
+Use:
+
+TimeService::isUserRequestWindowOpen()
+
+
+This ensures future changes are easy.
+
+
+============================================================
+100. FINAL IMPLEMENTATION REQUIREMENT
+============================================================
+
+Build this as a real production-ready application,
+not as a demo.
+
+Prioritize:
+
+1. Correct business logic
+2. Data integrity
+3. Security
+4. Auditability
+5. Fast Store operation
+6. Simple User experience
+7. Tally compatibility
+8. Maintainability
+
+
+Before implementing any ambiguous Tally import detail,
+keep the exporter configurable and clearly mark the field
+mapping that requires confirmation from the actual Tally
+import template.
+
+Do not invent unsupported Tally behavior.
+
+The final system must preserve the exact concept:
+
+USER
+  ↓
+ONE DAILY MASTER REQUISITION
+  ↓
+LOCATION-WISE SUB REQUISITIONS
+  ↓
+STORE ACTION
+  ↓
+ITEM LOCK
+  ↓
+TALLY EXPORT
+  ↓
+SALE VOUCHER
+  ↓
+INVENTORY MANAGEMENT
+
+
+END OF PRD
+============================================================
