@@ -1,4 +1,4 @@
-# ⚡ Gunayatan Enterprise Store Requisition & Distributed Material Distribution System
+# ⚡ Requisition System by Piyush — Distributed Store & Inventory Management Platform
 
 <div align="center">
 
@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/License-MIT_Enterprise_Permissive-blueviolet?style=for-the-badge)](LICENSE)
 
 <p align="center">
-  <b>A High-Concurrency, Fault-Tolerant Material Requisition, Inventory Valuation, and Distributed ERP Synchronization Infrastructure.</b>
+  <b>A Generic, Enterprise-Grade Material Requisition, Inventory Valuation, and Distributed ERP Synchronization Platform designed for Any Organization.</b>
 </p>
 
 </div>
@@ -19,7 +19,7 @@
 
 ## 🏛️ Executive Technical Summary
 
-The **Gunayatan Store Requisition Infrastructure** is a hybrid micro-monolith platform engineered to resolve non-deterministic supply-chain deficits, eliminate physical paper gatepass friction, and maintain real-time perpetual inventory valuation across distributed industrial cost centers. 
+The **Requisition System by Piyush** is an enterprise-grade, organization-agnostic hybrid micro-monolith platform engineered to resolve non-deterministic supply-chain deficits, eliminate physical paper gatepass friction, and maintain real-time perpetual inventory valuation across distributed industrial cost centers. 
 
 The system couples a **zero-dependency, low-latency PHP REST execution core** with **tri-tier reactive Flutter client nodes** (User Terminal, Storekeeper Issue Terminal, and Executive Admin Node) and an asynchronous **ERP Serialization Bridge** for bidirectional accounting synchrony with Tally Prime / ERP platforms.
 

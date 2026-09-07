@@ -1,6 +1,6 @@
 <?php
 /**
- * Gunayatan Store Requisition & Management System
+ * Store Requisition & Inventory Management System
  * Unified Enterprise Portal & App Download Hub
  * Designed & Developed by Piyush Maji
  */
@@ -30,7 +30,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gunayatan Store Requisition & Enterprise Hub</title>
+    <title>Requisition System by Piyush — Store & Material Distribution Hub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -859,8 +859,8 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "
                     <i class="fa-solid fa-boxes-stacked"></i>
                 </div>
                 <div class="brand-text">
-                    <h1>Gunayatan Requisition</h1>
-                    <span>Store Management & Distribution System</span>
+                    <h1>Requisition System</h1>
+                    <span>Store Management & Distribution System • by Piyush</span>
                 </div>
             </a>
             <div class="nav-status">
@@ -1070,7 +1070,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "
 
         <!-- Footer -->
         <footer>
-            <p>© <?= date('Y') ?> Gunayatan Store Requisition & Management System. All rights reserved.</p>
+            <p>© <?= date('Y') ?> Requisition System by Piyush. All rights reserved.</p>
             <div class="footer-dev-badge">
                 <span>Designed & Developed with <i class="fa-solid fa-heart" style="color: #f43f5e;"></i> by</span>
                 <a href="javascript:void(0)" class="dev-link" onclick="openDeveloperModal()">Piyush Maji</a>
